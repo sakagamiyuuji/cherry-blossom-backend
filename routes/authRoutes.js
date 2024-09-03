@@ -8,6 +8,9 @@ const router = express.Router();
 router.post('/login', authController.login);
 router.post('/register', authController.register);
 router.post('/refresh-token', refreshToken);
+// In authRoutes.js
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPassword);
 
 router.get('/protected', authMiddleware, (req, res) => {
   res

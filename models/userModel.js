@@ -117,63 +117,49 @@ const User = {
   },
 
   /**
-   * Update user details.
-   * @param {number} userId - The ID of the user to update.
-   * @param {object} userDetails - An object containing all the fields to be updated.
+   * Update the user's password.
+   * @param {number} userId - The ID of the user.
+   * @param {string} newPassword - The new password to store.
    * @returns {object} - The updated user object.
    */
-  async updateUser(userId, userDetails) {
-    const {
-      name,
-      email,
-      phone,
-      city,
-      bod,
-      username,
-      password,
-      role_id,
-      token,
-      refresh_token,
-    } = userDetails;
-
-    // Hash the password if it's being updated
-    const hashedPassword = password
-      ? Buffer.from(password).toString('base64')
-      : null;
+  async updatePassword(userId, newPassword) {
+    // Hash the new password
 
     const query = `
       UPDATE users
-      SET 
-        name = $1,
-        email = $2,
-        phone = $3,
-        city = $4,
-        bod = $5,
-        username = $6,
-        password = COALESCE($7, password),  -- Only update password if provided
-        role_id = $8,
-        token = $9,
-        refresh_token = $10,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = $11
-      RETURNING *
+      SET password = $1, reset_token = NULL, reset_token_expiry = NULL, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING id, name, email, username, role_id, created_at, updated_at
     `;
 
-    const { rows } = await pool.query(query, [
-      name || null,
-      email || null,
-      phone || null,
-      city || null,
-      bod || null,
-      username || null,
-      hashedPassword,
-      role_id || null,
-      token || null,
-      refresh_token || null,
+    const { rows } = await pool.query(query, [newPassword, userId]);
+    return rows[0];
+  },
+
+  async updateResetToken(userId, resetToken, resetTokenExpiry) {
+    const query = `
+      UPDATE users
+      SET reset_token = $1, reset_token_expiry = $2
+      WHERE id = $3
+    `;
+    await pool.query(query, [
+      resetToken,
+      resetTokenExpiry.toISOString(),
       userId,
     ]);
+  },
 
-    return rows[0];
+  async findByResetToken(resetToken) {
+    const query = `
+      SELECT * FROM users
+      WHERE reset_token = $1 AND reset_token_expiry > $2
+      LIMIT 1
+    `;
+    const { rows } = await pool.query(query, [
+      resetToken,
+      new Date().toISOString(),
+    ]);
+    return rows[0] || null;
   },
 };
 
