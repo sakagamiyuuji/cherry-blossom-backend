@@ -48,11 +48,12 @@ const authController = {
 
       const token = generateToken(user);
       const refreshToken = generateRefreshToken(user);
+      user.token = token;
+      user.refreshToken = refreshToken;
+
       await User.updateToken(user.id, token, refreshToken);
 
-      res
-        .status(200)
-        .json(baseResponse(200, { token, refreshToken }, 'Login berhasil'));
+      res.status(200).json(baseResponse(200, { user }, 'Login berhasil'));
     } catch (error) {
       console.error('Login Error:', error);
       res
