@@ -37,8 +37,6 @@ const authController = {
 
       const token = generateToken(user);
       const refreshToken = generateRefreshToken(user);
-      user.token = token;
-      user.refreshToken = refreshToken;
 
       await User.updateToken(user.id, token, refreshToken);
 

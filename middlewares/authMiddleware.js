@@ -10,7 +10,7 @@ const authMiddleware = (req, res, next) => {
   }
 
   // Extract the token from the Authorization header
-  const token = authHeader.split(' ')[1];
+  const token = authHeader.split(' ')[2];
 
   // Check if the token was extracted correctly
   if (!token) {
