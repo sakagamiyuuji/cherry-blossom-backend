@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const User = require('../models/userModel');
 const baseResponse = require('../utils/response');
+const { generateToken, generateRefreshToken } = require('../utils/jwt');
 
 const authController = {
   async login(req, res) {
@@ -169,6 +170,7 @@ const authController = {
       res.status(500).json(baseResponse(500, null, error));
     }
   },
+
   async resetPassword(req, res) {
     const { token } = req.body;
     const { newPassword } = req.body;

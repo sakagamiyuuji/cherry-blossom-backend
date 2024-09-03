@@ -9,7 +9,19 @@ const generateToken = (user) => {
     iat: Math.floor(Date.now() / 1000), // Issued at
   };
 
-  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '6h' });
+  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
 };
 
-module.exports = { generateToken };
+const generateRefreshToken = (user) => {
+  const payload = {
+    id: user.id,
+    email: user.email,
+    bod: user.bod,
+    iat: Math.floor(Date.now() / 1000), // Issued at
+  };
+  return jwt.sign({ payload }, process.env.JWT_REFRESH_SECRET, {
+    expiresIn: '7d',
+  });
+};
+
+module.exports = { generateToken, generateRefreshToken };
