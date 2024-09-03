@@ -1,9 +1,12 @@
-// index.js
 const express = require('express');
+const cors = require('cors'); // Import the cors package
 const authRoutes = require('./routes/authRoutes');
 require('dotenv').config();
 
 const app = express();
+
+// Middleware to enable CORS
+app.use(cors()); // This will allow all cross-origin requests
 
 // Middleware to parse JSON requests
 app.use(express.json());
