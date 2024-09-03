@@ -1,19 +1,17 @@
-// middlewares/authMiddleware.js
 const jwt = require('jsonwebtoken');
 const baseResponse = require('../utils/response');
 
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers['authorization'];
 
-  // Check if Authorization header is present
   if (!authHeader) {
-    return res.status(401).json(baseResponse(null, 401, 'No token provided'));
+    return res.status(401).json(baseResponse(401, null, 'No token provided'));
   }
 
-  const token = authHeader.split(' ')[1]; // Expected format: "Bearer <token>"
+  const token = authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json(baseResponse(null, 401, 'No token provided'));
+    return res.status(401).json(baseResponse(401, null, 'No token provided'));
   }
 
   try {
@@ -21,7 +19,11 @@ const authMiddleware = (req, res, next) => {
     req.userId = decoded.id;
     next();
   } catch (err) {
-    res.status(401).json(baseResponse(null, 401, 'Invalid token'));
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json(baseResponse(401, null, 'Token expired'));
+    } else {
+      return res.status(401).json(baseResponse(401, null, 'Invalid token'));
+    }
   }
 };
 

@@ -1,4 +1,3 @@
-// models/userModel.js
 const pool = require('../config/db');
 const bcrypt = require('bcryptjs');
 
@@ -26,7 +25,6 @@ const User = {
   async findByEmail(email) {
     const query = `
       SELECT * FROM users
-      FROM users
       WHERE email = $1
       LIMIT 1
     `;
@@ -35,31 +33,60 @@ const User = {
   },
 
   /**
-   * Create a new user.
-   * @param {string} email - User's email.
-   * @param {string} username - User's username.
-   * @param {string} password - User's password.
+   * Create a new user with all fields.
+   * @param {object} userDetails - An object containing all the fields to be inserted.
    * @returns {object} - Newly created user object.
    */
-  async createUser(email, username, password) {
-    const hashedPassword = await bcrypt.hash(password, 10);
+  async createUser(userDetails) {
+    const {
+      name,
+      email,
+      phone,
+      city,
+      bod,
+      username,
+      password,
+      role_id,
+      token,
+      refresh_token,
+    } = userDetails;
+
+    // Hash the password before storing it
+    const hashedPassword = Buffer.from(password).toString('base64');
+
     const query = `
-      INSERT INTO users (email, username, password)
-      VALUES ($1, $2, $3)
-      RETURNING id, email, username, bod
+      INSERT INTO users (name, email, phone, city, bod, username, password, role_id, token, refresh_token)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING id, name, email, phone, city, bod, username, role_id, token, refresh_token, created_at, updated_at
     `;
-    const { rows } = await pool.query(query, [email, username, hashedPassword]);
+    const { rows } = await pool.query(query, [
+      name,
+      email,
+      phone || null,
+      city || null,
+      bod || null,
+      username,
+      hashedPassword,
+      role_id || null,
+      token || null,
+      refresh_token || null,
+    ]);
     return rows[0];
   },
 
   /**
-   * Update the user's token in the database.
+   * Update the user's token and refresh token in the database.
    * @param {number} userId - The ID of the user.
    * @param {string} token - The JWT token to store.
+   * @param {string} refreshToken - The refresh token to store.
    */
-  async updateToken(userId, token) {
-    const query = 'UPDATE users SET token = $1 WHERE id = $2';
-    await pool.query(query, [token, userId]);
+  async updateToken(userId, token, refreshToken) {
+    const query = `
+      UPDATE users 
+      SET token = $1, refresh_token = $2 
+      WHERE id = $3
+    `;
+    await pool.query(query, [token, refreshToken, userId]);
   },
 
   /**
@@ -87,6 +114,66 @@ const User = {
     `;
     const { rows } = await pool.query(query, [userId]);
     return rows[0] || null;
+  },
+
+  /**
+   * Update user details.
+   * @param {number} userId - The ID of the user to update.
+   * @param {object} userDetails - An object containing all the fields to be updated.
+   * @returns {object} - The updated user object.
+   */
+  async updateUser(userId, userDetails) {
+    const {
+      name,
+      email,
+      phone,
+      city,
+      bod,
+      username,
+      password,
+      role_id,
+      token,
+      refresh_token,
+    } = userDetails;
+
+    // Hash the password if it's being updated
+    const hashedPassword = password
+      ? Buffer.from(password).toString('base64')
+      : null;
+
+    const query = `
+      UPDATE users
+      SET 
+        name = $1,
+        email = $2,
+        phone = $3,
+        city = $4,
+        bod = $5,
+        username = $6,
+        password = COALESCE($7, password),  -- Only update password if provided
+        role_id = $8,
+        token = $9,
+        refresh_token = $10,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $11
+      RETURNING *
+    `;
+
+    const { rows } = await pool.query(query, [
+      name || null,
+      email || null,
+      phone || null,
+      city || null,
+      bod || null,
+      username || null,
+      hashedPassword,
+      role_id || null,
+      token || null,
+      refresh_token || null,
+      userId,
+    ]);
+
+    return rows[0];
   },
 };
 

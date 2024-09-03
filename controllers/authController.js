@@ -1,127 +1,132 @@
-// controllers/authController.js
+const jwt = require('jsonwebtoken');
 const User = require('../models/userModel');
-const { generateToken } = require('../utils/jwt');
 const baseResponse = require('../utils/response');
-const bcrypt = require('bcryptjs');
+
+// Helper function to generate JWT token
+const generateToken = (user) => {
+  return jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+};
+
+// Helper function to generate refresh token
+const generateRefreshToken = (user) => {
+  return jwt.sign({ id: user.id }, process.env.JWT_REFRESH_SECRET, {
+    expiresIn: '7d',
+  });
+};
 
 const authController = {
-  /**
-   * Handle user login.
-   * Allows login with either email or username along with password.
-   */
   async login(req, res) {
-    const { identifier, password } = req.body; // 'identifier' can be email or username
+    const { identifier, password } = req.body;
 
-    // Check if identifier and password are provided
-    if (!identifier || !password) {
+    // Cek apakah email/username dan password telah diisi
+    if (!identifier) {
       return res
         .status(400)
-        .json(baseResponse(null, 400, 'Email/password belum dimasukan'));
+        .json(baseResponse(400, null, 'Email/Username tidak boleh kosong'));
+    }
+    if (!password) {
+      return res
+        .status(400)
+        .json(baseResponse(400, null, 'Password tidak boleh kosong'));
     }
 
     try {
-      // Find user by email or username
       const user = await User.findByIdentifier(identifier);
-      //console.log(user);
       if (!user) {
         return res
           .status(400)
-          .json(baseResponse(null, 400, 'Email/password salah'));
+          .json(baseResponse(400, null, 'Email/Username atau password salah'));
       }
 
-      // Compare passwords
-      const isPasswordValid = await bcrypt.compare(password, user.password);
+      const isPasswordValid =
+        Buffer.from(password).toString('base64') === user.password;
       if (!isPasswordValid) {
         return res
           .status(400)
-          .json(baseResponse(null, 400, 'Email/password salah'));
+          .json(baseResponse(400, null, 'Email/Username atau password salah'));
       }
 
-      // Generate JWT token
       const token = generateToken(user);
-      User.updateToken(user.id, token);
+      const refreshToken = generateRefreshToken(user);
+      await User.updateToken(user.id, token, refreshToken);
 
-      user.token = token;
-
-      res.status(200).json(baseResponse(user, 200, 'Login berhasil'));
+      res
+        .status(200)
+        .json(baseResponse(200, { token, refreshToken }, 'Login berhasil'));
     } catch (error) {
       console.error('Login Error:', error);
       res
         .status(500)
-        .json(baseResponse(null, 500, 'Terjadi kesalahan pada server'));
+        .json(baseResponse(500, null, 'Terjadi kesalahan pada server'));
     }
   },
 
-  /**
-   * Handle user registration.
-   * Checks if email is already registered before creating a new user.
-   */
   async register(req, res) {
-    const { email, username, password } = req.body;
+    const { name, email, phone, city, bod, username, password, role_id } =
+      req.body;
 
-    // Check if all fields are provided
-    if (!email || !username || !password) {
+    // Validasi field wajib
+    if (!name) {
       return res
         .status(400)
-        .json(baseResponse(null, 400, 'Semua field harus diisi'));
+        .json(baseResponse(400, null, 'Nama tidak boleh kosong'));
+    }
+    if (!email) {
+      return res
+        .status(400)
+        .json(baseResponse(400, null, 'Email tidak boleh kosong'));
+    }
+    if (!username) {
+      return res
+        .status(400)
+        .json(baseResponse(400, null, 'Username tidak boleh kosong'));
+    }
+    if (!password) {
+      return res
+        .status(400)
+        .json(baseResponse(400, null, 'Password tidak boleh kosong'));
     }
 
     try {
-      // Check if email is already registered
       const existingUser = await User.findByEmail(email);
       if (existingUser) {
         return res
           .status(400)
-          .json(baseResponse(null, 400, 'Email telah terdaftar'));
+          .json(baseResponse(400, null, 'Email telah terdaftar'));
       }
 
-      // Create new user
-      const newUser = await User.createUser(email, username, password);
-      const token = generateToken(newUser);
+      // Create the new user
+      const newUser = await User.createUser({
+        name,
+        email,
+        phone: phone || null,
+        city: city || null,
+        bod: bod || null,
+        username,
+        password,
+        role_id: role_id || null,
+      });
 
+      // Generate tokens after user is created
+      const token = generateToken(newUser);
+      const refreshToken = generateRefreshToken(newUser);
+
+      // Update the user with the tokens
+      await User.updateToken(newUser.id, token, refreshToken);
+
+      // Add the tokens to the newUser object
+      newUser.token = token;
+      newUser.refresh_token = refreshToken;
+
+      // Return the user data along with tokens
       res
         .status(201)
-        .json(baseResponse({ token }, 201, 'User berhasil didaftarkan'));
+        .json(baseResponse(201, newUser, 'User berhasil didaftarkan'));
     } catch (error) {
       console.error('Registration Error:', error);
       res
         .status(500)
-        .json(baseResponse(null, 500, 'Terjadi kesalahan pada server'));
-    }
-  },
-
-  /**
-   * Check if an email is already registered.
-   */
-  async checkEmail(req, res) {
-    const { email } = req.query;
-
-    if (!email) {
-      return res
-        .status(400)
-        .json(baseResponse(null, 400, 'Email belum dimasukan'));
-    }
-
-    try {
-      const user = await User.findByEmail(email);
-      if (user) {
-        return res
-          .status(200)
-          .json(
-            baseResponse({ isRegistered: true }, 200, 'Email telah terdaftar'),
-          );
-      } else {
-        return res
-          .status(200)
-          .json(
-            baseResponse({ isRegistered: false }, 200, 'Email belum terdaftar'),
-          );
-      }
-    } catch (error) {
-      console.error('Check Email Error:', error);
-      res
-        .status(500)
-        .json(baseResponse(null, 500, 'Terjadi kesalahan pada server'));
+        .json(baseResponse(500, null, 'Terjadi kesalahan pada server'));
     }
   },
 };

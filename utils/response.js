@@ -1,8 +1,8 @@
 // utils/response.js
-const baseResponse = (data, code, message) => {
+const baseResponse = (code, data, message) => {
   return {
-    data,
     code,
+    data,
     message,
   };
 };
